@@ -329,5 +329,74 @@ if __name__ == "__main__":
         default="es",  # ← ESPAÑOL por default (diferente a run_custom.py)
         help="Idioma de salida para los textos de la figura (default: es / español)",
     )
+    parser.add_argument(
+        "--caption",
+        type=str,
+        default=None,
+        help="Descripción de la figura a generar (modo single). Si se omite, ejecuta los 3 test cases.",
+    )
+    parser.add_argument(
+        "--content",
+        type=str,
+        default="",
+        help="Contexto adicional del paper (opcional, mejora la calidad)",
+    )
+    parser.add_argument(
+        "--type",
+        choices=["diagram", "plot"],
+        default="diagram",
+        help="Tipo de figura: diagram (diagramas) o plot (gráficas estadísticas)",
+    )
+    parser.add_argument(
+        "--output",
+        type=str,
+        default=None,
+        help="Carpeta de salida (default: output/ o la configurada en OUTPUT_DIR)",
+    )
     args = parser.parse_args()
-    asyncio.run(main(language=args.lang))
+
+    if args.caption:
+        # Modo single: generar una sola figura a partir de --caption
+        import uuid
+        single_test = {
+            "id": f"custom-{uuid.uuid4().hex[:6]}",
+            "label": args.caption[:60],
+            "caption": args.caption,
+            "content": args.content,
+        }
+        if args.output:
+            OUTPUT_DIR = Path(args.output)
+            OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+        async def run_single():
+            print("🍌 PaperBanana — Modo Single (una figura)")
+            print(f"Idioma: {'🇪🇸 Español' if args.lang == 'es' else '🇺🇸 English'}")
+            print(f"Caption: {args.caption[:80]}...")
+            print(f"Output: {OUTPUT_DIR}\n")
+
+            exp_config = config.ExpConfig(
+                dataset_name="PaperBananaBench",
+                task_name=args.type,
+                exp_mode="demo_planner_critic",
+                retrieval_setting="auto",
+                max_critic_rounds=1,
+            )
+            processor = PaperVizProcessor(
+                exp_config=exp_config,
+                vanilla_agent=VanillaAgent(exp_config=exp_config),
+                planner_agent=PlannerAgent(exp_config=exp_config, language=args.lang),
+                visualizer_agent=VisualizerAgent(exp_config=exp_config),
+                stylist_agent=StylistAgent(exp_config=exp_config, language=args.lang),
+                critic_agent=CriticAgent(exp_config=exp_config),
+                retriever_agent=RetrieverAgent(exp_config=exp_config),
+                polish_agent=PolishAgent(exp_config=exp_config),
+            )
+            result = await run_test(single_test, exp_config, processor, language=args.lang)
+            if result["final_image_path"]:
+                print(f"\n✅ Figura generada: {result['final_image_path']}")
+            else:
+                print(f"\n❌ Error: {result.get('error', 'Unknown')}")
+
+        asyncio.run(run_single())
+    else:
+        asyncio.run(main(language=args.lang))

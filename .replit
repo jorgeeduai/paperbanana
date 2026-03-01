@@ -1,0 +1,11 @@
+run = "python run_es.py --caption 'Diagrama de flujo del diseño experimental'"
+entrypoint = "run_es.py"
+
+[nix]
+channel = "stable-24_05"
+
+[env]
+PYTHONPATH = "."
+
+[deployment]
+run = ["python", "run_es.py"]
