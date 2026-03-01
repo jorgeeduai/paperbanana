@@ -1,0 +1,9 @@
+# Configuración para alumnos Q2003B con Gemini 2.5 Flash (gratuito)
+defaults:
+  model_name: "gemini-2.5-flash"
+  image_model_name: "gemini-2.5-flash-image"
+
+api_keys:
+  google_api_key: "TU_API_KEY_AQUI"
+  openai_api_key: ""
+  anthropic_api_key: ""

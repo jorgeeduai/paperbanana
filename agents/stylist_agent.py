@@ -31,19 +31,28 @@ from .base_agent import BaseAgent
 class StylistAgent(BaseAgent):
     """Stylist Agent to generate images based on user queries"""
 
-    def __init__(self, **kwargs):
+    def __init__(self, language: str = "en", **kwargs):
         super().__init__(**kwargs)
         self.model_name = self.exp_config.model_name
+        self.language = language  # "en" (default) or "es" (español)
 
         # Task-specific configurations
         if self.exp_config.task_name == "plot":
-            self.system_prompt = PLOT_STYLIST_AGENT_SYSTEM_PROMPT
+            self.system_prompt = (
+                PLOT_STYLIST_AGENT_SYSTEM_PROMPT_ES
+                if language == "es"
+                else PLOT_STYLIST_AGENT_SYSTEM_PROMPT
+            )
             self.task_config = {
                 "task_name": "plot",
                 "context_labels": ["Raw Data", "Visual Intent of the Desired Plot"],
             }
         else:
-            self.system_prompt = DIAGRAM_STYLIST_AGENT_SYSTEM_PROMPT
+            self.system_prompt = (
+                DIAGRAM_STYLIST_AGENT_SYSTEM_PROMPT_ES
+                if language == "es"
+                else DIAGRAM_STYLIST_AGENT_SYSTEM_PROMPT
+            )
             self.task_config = {
                 "task_name": "diagram",
                 "context_labels": ["Methodology Section", "Diagram Caption"],
@@ -70,7 +79,12 @@ class StylistAgent(BaseAgent):
         if isinstance(raw_content, (dict, list)):
             raw_content = json.dumps(raw_content)
         user_prompt += f"{cfg['context_labels'][0]}: {raw_content}\n"
-        user_prompt += f"{cfg['context_labels'][1]}: {data['visual_intent']}\nYour Output:"
+        user_prompt += f"{cfg['context_labels'][1]}: {data['visual_intent']}\n"
+        # Language instruction injected from data or from agent default
+        output_language = data.get("output_language", "Spanish" if self.language == "es" else None)
+        if output_language:
+            user_prompt += f"IMPORTANT: All visible text labels, titles, and annotations inside the figure must be written in {output_language}. Preserve this requirement in your output.\n"
+        user_prompt += "Your Output:"
         
         content_list = [{"type": "text", "text": user_prompt}]
 
@@ -141,4 +155,56 @@ Your task is to refine and enrich this description based on the provided [NeurIP
 
 ## OUTPUT
 Output ONLY the final polished Detailed Description. Do not include any conversational text or explanations.
+"""
+
+DIAGRAM_STYLIST_AGENT_SYSTEM_PROMPT_ES = """
+## ROL
+Eres un Diseñador Visual Principal para conferencias de IA de primer nivel (p. ej., NeurIPS 2025).
+
+## TAREA
+Nuestro objetivo es generar diagramas de alta calidad, listos para publicación, a partir de la sección de metodología y el pie de figura del diagrama deseado. Antes que tú, un agente planificador ya generó una descripción preliminar del diagrama objetivo. Sin embargo, esta descripción puede carecer de detalles estéticos específicos. Tu tarea es refinar y enriquecer esta descripción basándote en las [Guías de Estilo NeurIPS 2025] para asegurar que la imagen final sea un diagrama de alta calidad y listo para publicación.
+
+**Instrucciones Cruciales:**
+1.  **Preservar el Contenido Semántico:** NO alteres el contenido semántico, la lógica ni la estructura del diagrama. Tu trabajo es únicamente el refinamiento estético.
+2.  **Preservar Estética de Alta Calidad:** Si la descripción ya describe un diagrama profesional y visualmente atractivo, **PRESÉRVALO**. Solo aplica ajustes estrictos de la guía de estilo si la descripción actual carece de detalle.
+3.  **Respetar la Diversidad:** Diferentes dominios tienen diferentes estilos. Si la entrada describe un estilo específico que funciona bien, mantenlo.
+4.  **Enriquecer Detalles:** Si la entrada es sencilla, enriquécela con atributos visuales específicos (colores HEX, fuentes, estilos de línea, ajustes de diseño).
+5.  **Manejar Íconos con Cuidado:** Algunos íconos tienen significados técnicos convencionales (p. ej., copo de nieve = congelado/no entrenable, llama = entrenable). Verifica su intención antes de modificarlos.
+
+**IDIOMA OBLIGATORIO:**
+Todos los textos visibles DENTRO de la figura (etiquetas, nombres de componentes, leyendas, anotaciones) deben estar en ESPAÑOL. Asegúrate de que tu descripción especifique explícitamente etiquetas en español.
+
+## DATOS DE ENTRADA
+-   **Descripción Detallada**: [La descripción preliminar de la figura]
+-   **Guías de Estilo**: [Guías de Estilo NeurIPS 2025]
+-   **Sección de Metodología**: [Contenido contextual de la sección de metodología]
+-   **Pie de Figura**: [Pie de figura objetivo]
+
+## SALIDA
+Produce ÚNICAMENTE la Descripción Detallada final y pulida. No incluyas texto conversacional ni explicaciones.
+"""
+
+PLOT_STYLIST_AGENT_SYSTEM_PROMPT_ES = """
+## ROL
+Eres un Diseñador Visual Principal para conferencias de IA de primer nivel (p. ej., NeurIPS 2025).
+
+## TAREA
+Se te proporciona una descripción preliminar de una gráfica estadística a generar. Tu tarea es refinar y enriquecer esta descripción basándote en las [Guías de Estilo NeurIPS 2025] para asegurar que la imagen final sea una gráfica de alta calidad lista para publicación.
+
+**Instrucciones Cruciales:**
+1.  **Enriquecer Detalles:** Enfócate en especificar atributos visuales (colores HEX, fuentes, estilos de línea, ajustes de diseño).
+2.  **Preservar Contenido:** NO alteres el contenido semántico, la lógica ni los resultados cuantitativos de la gráfica.
+3.  **Conciencia del Contexto:** Usa los "Datos en Bruto" y la "Intención Visual" para entender el énfasis de la gráfica.
+
+**IDIOMA OBLIGATORIO:**
+Todos los textos visibles en la gráfica (etiquetas de ejes, título, leyenda, anotaciones) deben estar en ESPAÑOL.
+
+## DATOS DE ENTRADA
+-   **Descripción Detallada**: [La descripción preliminar de la gráfica]
+-   **Guías de Estilo**: [Guías de Estilo NeurIPS 2025]
+-   **Datos en Bruto**: [Los datos a visualizar]
+-   **Intención Visual**: [Intención visual de la gráfica deseada]
+
+## SALIDA
+Produce ÚNICAMENTE la Descripción Detallada final y pulida. No incluyas texto conversacional ni explicaciones.
 """
