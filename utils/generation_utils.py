@@ -123,6 +123,11 @@ async def call_gemini_with_retry_async(
 
             # Convert generic content list to Gemini's format right before the API call
             gemini_contents = _convert_to_gemini_parts(current_contents)
+            # Image generation models (e.g. gemini-2.5-flash-image, nanoviz) require
+            # response_modalities=['IMAGE', 'TEXT'] — without it the API returns only text or fails
+            if "image" in model_name or "nanoviz" in model_name:
+                if not getattr(config, "response_modalities", None):
+                    config.response_modalities = ["IMAGE", "TEXT"]
             response = await client.aio.models.generate_content(
                 model=model_name, contents=gemini_contents, config=config
             )
